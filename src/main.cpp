@@ -5,13 +5,25 @@
 #include <WiFiManager.h>
 #include <GxEPD2_BW.h>
 
-// Fuentes estilo San Francisco / Helvetica
+// Tipografías vectoriales estilo San Francisco / Helvetica
 #include <Fonts/FreeSans9pt7b.h>
 #include <Fonts/FreeSansBold9pt7b.h>
 #include <Fonts/FreeSansBold24pt7b.h>
 
 // ==========================================
-// PINES Y CONFIGURACIÓN HARDWARE
+// 1. CREDENCIALES POR DEFECTO Y UBICACIÓN
+// ==========================================
+const char* DEFAULT_SSID = "TuNombreDeRed";    // <-- Pon aquí tu SSID
+const char* DEFAULT_PASS = "TuContrasena";     // <-- Pon aquí tu Password
+
+const char* LOCATION_LABEL = "BARCELONA";      // Texto de cabecera
+const float LATITUDE       = 41.3887;          // Tu latitud
+const float LONGITUDE      = 2.1589;           // Tu longitud
+
+const unsigned long UPDATE_INTERVAL_MIN = 30; // Frecuencia de refresco
+
+// ==========================================
+// CONFIGURACIÓN DE PINES
 // ==========================================
 #define EPD_CS    7
 #define EPD_DC    3
@@ -22,21 +34,9 @@ GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> display(
     GxEPD2_154_D67(EPD_CS, EPD_DC, EPD_RST, EPD_BUSY)
 );
 
-// Nombre que se mostrará en la cabecera (en mayúsculas para toque minimalista)
-const char* LOCATION_LABEL = "METEO";
-
-// Coordenadas geográficas (ajusta a tu localidad)
-const float LATITUDE  = 41.5012;
-const float LONGITUDE = 2.1557;
-
-// Intervalo de actualización (en minutos)
-const unsigned long UPDATE_INTERVAL_MIN = 30;
-
 // ==========================================
-// HELPERS DE TIPOGRAFÍA Y CENTRADO
+// FUNCIONES GRÁFICAS Y TIPOGRÁFICAS
 // ==========================================
-
-// Centra cualquier texto horizontalmente calculando su ancho real en píxeles
 void printCentered(const String &text, int y, const GFXfont *font) {
     display.setFont(font);
     display.setTextColor(GxEPD_BLACK);
@@ -47,7 +47,6 @@ void printCentered(const String &text, int y, const GFXfont *font) {
     display.print(text);
 }
 
-// Dibuja la temperatura principal grande con su anillo de grado tipo Apple
 void drawHeroTemperature(int temp, int y) {
     display.setFont(&FreeSansBold24pt7b);
     display.setTextColor(GxEPD_BLACK);
@@ -57,24 +56,19 @@ void drawHeroTemperature(int temp, int y) {
     uint16_t w, h;
     display.getTextBounds(tStr, 0, y, &x1, &y1, &w, &h);
     
-    // Ancho total considerando la cifra y el símbolo de grado
     int totalW = w + 14;
     int startX = (200 - totalW) / 2;
     
     display.setCursor(startX, y);
     display.print(tStr);
     
-    // Anillo de grado estilizado (2px de grosor)
     int degX = startX + w + 7;
     int degY = y - h + 6;
     display.drawCircle(degX, degY, 4, GxEPD_BLACK);
     display.drawCircle(degX, degY, 3, GxEPD_BLACK);
 }
 
-// ==========================================
-// ICONOS VECTORIALES (ESTILO SF SYMBOLS)
-// ==========================================
-
+// Iconografía estilo Apple / SF Symbols
 void drawAppleSun(int cx, int cy) {
     display.fillCircle(cx, cy, 9, GxEPD_BLACK);
     for (int i = 0; i < 8; i++) {
@@ -84,7 +78,6 @@ void drawAppleSun(int cx, int cy) {
         int x2 = cx + cos(angle) * 17;
         int y2 = cy + sin(angle) * 17;
         display.drawLine(x1, y1, x2, y2, GxEPD_BLACK);
-        // Doble trazo para darle más cuerpo
         display.drawLine(x1 + (i % 2 == 0 ? 0 : 1), y1, x2 + (i % 2 == 0 ? 0 : 1), y2, GxEPD_BLACK);
     }
 }
@@ -96,24 +89,20 @@ void drawAppleCloud(int cx, int cy) {
 }
 
 void drawAppleSunCloud(int cx, int cy) {
-    // Sol de fondo
     display.fillCircle(cx + 9, cy - 8, 8, GxEPD_BLACK);
     display.drawLine(cx + 9, cy - 19, cx + 9, cy - 16, GxEPD_BLACK);
     display.drawLine(cx + 19, cy - 8, cx + 16, cy - 8, GxEPD_BLACK);
     display.drawLine(cx + 16, cy - 15, cx + 14, cy - 13, GxEPD_BLACK);
 
-    // Halo blanco de recorte (signature de SF Symbols)
     display.fillRoundRect(cx - 20, cy, 40, 16, 8, GxEPD_WHITE);
     display.fillCircle(cx - 7, cy + 2, 11, GxEPD_WHITE);
     display.fillCircle(cx + 6, cy - 1, 14, GxEPD_WHITE);
 
-    // Nube en primer plano
     drawAppleCloud(cx, cy);
 }
 
 void drawAppleRain(int cx, int cy) {
     drawAppleCloud(cx, cy - 6);
-    // Gotas de lluvia inclinadas
     for (int dx = -10; dx <= 10; dx += 10) {
         display.drawLine(cx + dx, cy + 12, cx + dx - 2, cy + 18, GxEPD_BLACK);
         display.drawLine(cx + dx + 1, cy + 12, cx + dx - 1, cy + 18, GxEPD_BLACK);
@@ -122,7 +111,6 @@ void drawAppleRain(int cx, int cy) {
 
 void drawAppleThunder(int cx, int cy) {
     drawAppleCloud(cx, cy - 6);
-    // Rayo limpio
     display.drawLine(cx, cy + 10, cx - 4, cy + 17, GxEPD_BLACK);
     display.drawLine(cx - 4, cy + 17, cx + 2, cy + 17, GxEPD_BLACK);
     display.drawLine(cx + 2, cy + 17, cx - 2, cy + 24, GxEPD_BLACK);
@@ -159,9 +147,8 @@ String getWeatherDesc(int code) {
 }
 
 // ==========================================
-// PANTALLAS DE ESTADO (APPLE STYLE)
+// RENDERIZADO DE PANTALLAS
 // ==========================================
-
 void showConfigPortalScreen(WiFiManager *wm) {
     display.setRotation(3);
     display.setFullWindow();
@@ -169,18 +156,15 @@ void showConfigPortalScreen(WiFiManager *wm) {
     do {
         display.fillScreen(GxEPD_WHITE);
 
-        // Icono minimalista de Wi-Fi
+        // Icono WiFi minimalista
         display.fillCircle(100, 32, 3, GxEPD_BLACK);
         display.drawCircle(100, 32, 9, GxEPD_BLACK);
         display.drawCircle(100, 32, 16, GxEPD_BLACK);
-        display.fillRect(70, 33, 60, 20, GxEPD_WHITE); // Recorte semicircular
+        display.fillRect(70, 33, 60, 20, GxEPD_WHITE);
 
-        // Título limpio
-        printCentered("Wi-Fi Setup", 62, &FreeSansBold9pt7b);
+        printCentered("Configurar Wi-Fi", 62, &FreeSansBold9pt7b);
 
-        // Tarjeta central redondeada
         display.drawRoundRect(14, 76, 172, 70, 8, GxEPD_BLACK);
-        
         display.setFont(&FreeSans9pt7b);
         display.setCursor(24, 96);
         display.print("Conectar a red:");
@@ -193,9 +177,7 @@ void showConfigPortalScreen(WiFiManager *wm) {
         display.setCursor(24, 134);
         display.print("IP: 192.168.4.1");
 
-        // Pie de pantalla
-        printCentered("Esperando conexion...", 176, &FreeSans9pt7b);
-
+        printCentered("Esperando red...", 176, &FreeSans9pt7b);
     } while (display.nextPage());
     display.hibernate();
 }
@@ -207,22 +189,22 @@ void renderAppleMeteoScreen(float temp, int hum, int code, float tMax, float tMi
     do {
         display.fillScreen(GxEPD_WHITE);
 
-        // 1. Etiqueta superior
+        // 1. Cabecera
         printCentered(LOCATION_LABEL, 24, &FreeSansBold9pt7b);
 
-        // 2. Icono central minimalista
+        // 2. Icono central
         drawWeatherIcon(code, 100, 52);
 
-        // 3. Temperatura principal grande
+        // 3. Temperatura destacada
         drawHeroTemperature((int)round(temp), 108);
 
-        // 4. Descripción del clima
+        // 4. Condición
         printCentered(getWeatherDesc(code), 128, &FreeSans9pt7b);
 
-        // 5. Divisor sutil y elegante
+        // 5. Línea sutil
         display.drawFastHLine(36, 145, 128, GxEPD_BLACK);
 
-        // 6. Métricas secundarias (Máxima y Mínima)
+        // 6. Rango diario
         String minMaxStr = "H: " + String((int)round(tMax)) + "   L: " + String((int)round(tMin));
         printCentered(minMaxStr, 166, &FreeSansBold9pt7b);
 
@@ -236,14 +218,14 @@ void renderAppleMeteoScreen(float temp, int hum, int code, float tMax, float tMi
 }
 
 // ==========================================
-// CONSULTA A OPEN-METEO
+// API OPEN-METEO
 // ==========================================
 bool updateWeather() {
     if (WiFi.status() != WL_CONNECTED) return false;
 
     HTTPClient http;
-    String url = "http://api.open-meteo.com/v1/forecast?latitude=" + String(LATITUDE, 3) +
-                 "&longitude=" + String(LONGITUDE, 3) +
+    String url = "http://api.open-meteo.com/v1/forecast?latitude=" + String(LATITUDE, 4) +
+                 "&longitude=" + String(LONGITUDE, 4) +
                  "&current=temperature_2m,relative_humidity_2m,weather_code" +
                  "&daily=temperature_2m_max,temperature_2m_min&timezone=auto";
 
@@ -262,8 +244,6 @@ bool updateWeather() {
             float maxTemp    = doc["daily"]["temperature_2m_max"][0];
             float minTemp    = doc["daily"]["temperature_2m_min"][0];
 
-           
-            // Línea corregida
             renderAppleMeteoScreen(currentTemp, currentHum, weatherCode, maxTemp, minTemp);
             http.end();
             return true;
@@ -273,11 +253,43 @@ bool updateWeather() {
     return false;
 }
 
-// Helper auxiliar
-float minMin(float a, float b) { return a < b ? a : b; }
+// ==========================================
+// CONEXIÓN HÍBRIDA
+// ==========================================
+void connectWiFiHybrid() {
+    WiFi.mode(WIFI_STA);
+    
+    // Intenta primero con credenciales en código si no hay una conectada
+    Serial.println("Intentando conexion con la red predefinida...");
+    WiFi.begin(DEFAULT_SSID, DEFAULT_PASS);
+
+    int timeout = 0;
+    while (WiFi.status() != WL_CONNECTED && timeout < 25) { // Espera ~12.5 seg
+        delay(500);
+        Serial.print(".");
+        timeout++;
+    }
+    Serial.println();
+
+    // Si no conectó, levanta el portal cautivo
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("No se pudo conectar. Iniciando Portal Cautivo...");
+        WiFiManager wm;
+        wm.setAPCallback(showConfigPortalScreen);
+        wm.setConfigPortalTimeout(180); // 3 minutos activo
+
+        if (!wm.startConfigPortal("Meteo-Config-AP")) {
+            Serial.println("Timeout en el portal. Reiniciando...");
+            delay(2000);
+            ESP.restart();
+        }
+    }
+
+    Serial.println("Conectado con exito! IP: " + WiFi.localIP().toString());
+}
 
 // ==========================================
-// SETUP Y LOOP
+// SETUP & LOOP
 // ==========================================
 unsigned long lastUpdateMillis = 0;
 
@@ -287,15 +299,10 @@ void setup() {
 
     display.init(115200);
 
-    WiFiManager wm;
-    wm.setAPCallback(showConfigPortalScreen);
-    wm.setConfigPortalTimeout(180);
+    // Conexión híbrida
+    connectWiFiHybrid();
 
-    if (!wm.autoConnect("Meteo-Config-AP")) {
-        delay(3000);
-        ESP.restart();
-    }
-
+    // Descargar datos y pintar pantalla
     updateWeather();
     lastUpdateMillis = millis();
 }
@@ -303,6 +310,7 @@ void setup() {
 void loop() {
     if (millis() - lastUpdateMillis >= (UPDATE_INTERVAL_MIN * 60 * 1000UL)) {
         lastUpdateMillis = millis();
+        Serial.println("Actualizando meteorologia...");
         updateWeather();
     }
     delay(1000);
