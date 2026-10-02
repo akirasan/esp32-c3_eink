@@ -13,12 +13,13 @@
 // ==========================================
 // 1. CREDENCIALES POR DEFECTO Y UBICACIÓN
 // ==========================================
-const char* DEFAULT_SSID = "TuNombreDeRed";    // <-- Pon aquí tu SSID
-const char* DEFAULT_PASS = "TuContrasena";     // <-- Pon aquí tu Password
-
-const char* LOCATION_LABEL = "BARCELONA";      // Texto de cabecera
-const float LATITUDE       = 41.3887;          // Tu latitud
-const float LONGITUDE      = 2.1589;           // Tu longitud
+#include "config.h"
+// Usar las macros definidas en config.h:
+const char* DEFAULT_SSID   = WIFI_SSID;
+const char* DEFAULT_PASS   = WIFI_PASS;
+const char* LOCATION_LABEL = LOCATION_NAME;
+const float LATITUDE       = LOCATION_LAT;
+const float LONGITUDE      = LOCATION_LON;
 
 const unsigned long UPDATE_INTERVAL_MIN = 30; // Frecuencia de refresco
 
